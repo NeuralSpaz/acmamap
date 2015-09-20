@@ -41,6 +41,7 @@
 		var pointData = new Float32Array(SITE_COUNT);
 		var pixelsToWebGLMatrix = new Float32Array(16);
 		var mapMatrix = new Float32Array(16);
+		var aPointSize = 1.;
 		var width = 0;
 		var height = 0;
 
@@ -127,7 +128,9 @@
 					resolutionScale: resolutionScale
 				};
 				canvasLayer = new CanvasLayer(canvasLayerOptions);
-				gl = canvasLayer.canvas.getContext('webgl',{premultipliedAlpha: true});
+				gl = canvasLayer.canvas.getContext('webgl',{premultipliedAlpha: true, antialias : true});
+				    gl.enable(gl.BLEND);
+          			gl.blendFunc( gl.SRC_ALPHA, gl.ONE );
 				createShaderProgram();
 				loadData();
 			}
@@ -171,6 +174,9 @@
 					gl.bindBuffer(gl.ARRAY_BUFFER, pointArrayBuffer);
 					gl.bufferData(gl.ARRAY_BUFFER, tempArray, gl.STATIC_DRAW);
 					var attributeLoc = gl.getAttribLocation(siteProgram, 'worldCoord');
+
+					aPointSize = gl.getAttribLocation(siteProgram, "aPointSize");
+
 					gl.enableVertexAttribArray(attributeLoc);
 					gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 0, 0);
 					update();
@@ -204,11 +210,19 @@
 			// Runs Every Time Map updates
 			function update() {
 				console.log("Update")
+
 				gl.clear(gl.COLOR_BUFFER_BIT);
+				var pointSize = Math.floor((map.zoom - 3.) / (25. - 4.) * (20. - 1) + 1);
+				var pointSize = Math.max(2, pointSize)
+				console.log(pointSize)
+				// var pointSize = 0.5;
+				gl.vertexAttrib1f(aPointSize, pointSize*1.0);
 				var mapProjection = map.getProjection();
 				mapMatrix.set(pixelsToWebGLMatrix);
+				// Scale to current zoom
 				var scale = Math.pow(2, map.zoom);
 				scaleMatrix(mapMatrix, scale, scale);
+				// translate 
 				var offset = mapProjection.fromLatLngToPoint(canvasLayer.getTopLeft());
 				translateMatrix(mapMatrix, -offset.x, -offset.y);
 				var matrixLoc = gl.getUniformLocation(siteProgram, 'mapMatrix');
@@ -242,17 +256,24 @@
 		</script>
 		<script id="siteVertexShader" type="x-shader/x-vertex">
 			attribute vec4 worldCoord;
+			attribute float aPointSize;
 			uniform mat4 mapMatrix;
 			void main() {
 				gl_Position = mapMatrix * worldCoord;
-				gl_PointSize = 3.;
+				gl_PointSize = aPointSize;
 			}
 		</script>
 		<script id="siteFragmentShader" type="x-shader/x-fragment">
 			precision mediump float;
-			void main() {
-				gl_FragColor = vec4(.9, .3, .1, .9);
-			}      
+			// void main() {
+			// 	gl_FragColor = vec4(.9, .3, .1, .9);
+			// }
+    		void main() {
+    			float dist = length(gl_PointCoord.xy - vec2(.5, .5));
+    			dist = 1. - (dist * 2.);
+    			dist = max(0., dist);
+    			gl_FragColor = vec4(.9, .3, .1, .9) * dist;
+    		}     
 		</script>
 	</head>
 

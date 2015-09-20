@@ -50,7 +50,7 @@ func main() {
 	http.Handle("/ws/acmasites", websocket.Handler(wsACMASites))
 
 	// Spin that http server up!
-	port := 30000
+	port := 20000
 	fmt.Printf("Server running on port %d\n", port)
 	go func() {
 		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
