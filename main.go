@@ -20,10 +20,14 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/csv"
 	"fmt"
 	"log"
 	"log/syslog"
+	"math"
 	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"golang.org/x/net/websocket"
@@ -53,8 +57,8 @@ func main() {
 		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 	}()
 
-	pointdata := []float32{221.04538524444445, 136.93982096462926, 221.0459136, 136.93963306394787, 221.06414648888887, 136.90747494091536, 220.98927644444444, 136.9198768606348, 223.14627413333335, 145.4789690031631}
-	// Main Loop
+	pointdata := loadData()
+
 	for {
 		select {
 		case <-time.After(time.Second * 1):
@@ -62,7 +66,7 @@ func main() {
 		case cl := <-newConn:
 			buf := new(bytes.Buffer)
 			// var pi float64 = math.Pi
-			err := binary.Write(buf, binary.LittleEndian, pointdata)
+			err := binary.Write(buf, binary.LittleEndian, pointdata[2:])
 			if err != nil {
 				log.Println("binary.Write failed:", err)
 			}
@@ -73,4 +77,40 @@ func main() {
 			log.Printf("Sent %v bytes", buf.Len())
 		}
 	}
+}
+
+func loadData() []float32 {
+	csvfile, err := os.Open("GDA94_SITE.CSV")
+
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	defer csvfile.Close()
+	r := csv.NewReader(csvfile)
+
+	records, err := r.ReadAll()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var points []float32
+
+	for _, each := range records {
+		lat, _ := strconv.ParseFloat(each[1], 64)
+		lng, _ := strconv.ParseFloat(each[2], 64)
+		lng = 256 * (0.5 + lng/360)
+		lat = project(lat)
+		lat32, lng32 := float32(lat), float32(lng)
+		points = append(points, lng32)
+		points = append(points, lat32)
+	}
+	return points
+}
+
+func project(lat float64) float64 {
+	siny := math.Sin(lat * math.Pi / 180)
+	siny = math.Min(math.Max(siny, -0.9999), 0.9999)
+	return (256 * (0.5 - math.Log((1+siny)/(1-siny))/(4*math.Pi)))
 }
