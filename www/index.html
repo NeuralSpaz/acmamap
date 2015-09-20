@@ -1,0 +1,149 @@
+<!doctype html>
+<!-- Copyright Josh Gardiner 2015 All rights reserved -->
+<!-- Based on Australian Communications and Media Authority information -->
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+		<title>All the Radios</title>
+		<style>
+			html, body, #map-div {
+				margin: 0;
+				padding: 0;
+				height: 100%;
+			}
+			.acma
+			{  
+				width: 100%;
+				margin-bottom: 11px;
+				display: table-cell;   
+				opacity:0.6;
+				position: fixed;
+				bottom: 0px;
+			}
+			.acma p
+			{
+				text-align: center;
+				font: 12px arial, sans-serif;
+			}
+		</style>
+		<script src="https://maps.googleapis.com/maps/api/js?v=3.20"></script>
+		<script src="CanvasLayer.js"></script>
+		<script>
+
+		// One to one
+		var resolutionScale = window.devicePixelRatio || 1;
+		var map;
+		var canvasLayer;
+		var gl;
+
+		function init() {
+				var mapOptions = {
+					zoom: 5,
+					center: new google.maps.LatLng(-39.3, 145),
+					mapTypeId: google.maps.MapTypeId.ROADMAP,
+					styles: [
+						{
+							"featureType": "all",
+							"elementType": "labels.text.fill",
+							"stylers": [{"saturation": 35},{"color": "#000000"},{"lightness": 41}]
+						},
+						{
+							"featureType": "all",
+							"elementType": "labels.text.stroke",
+							"stylers": [{"visibility": "on"},{"color":"#000000"},{"lightness": 15}]
+						},
+						{
+							"featureType": "all",
+							"elementType": "labels.icon",
+							"stylers": [{"visibility": "off"}]
+						},
+						{
+							"featureType": "administrative",
+							"elementType": "geometry.fill",
+							"stylers": [{"color": "#000000"},{"lightness": 21}]
+						},
+						{
+							"featureType": "administrative",
+							"elementType": "geometry.stroke",
+							"stylers": [{"color": "#000000"},{"lightness": 17},{"weight": 1.2}]
+						},
+						{
+							"featureType": "landscape",
+							"elementType": "geometry",
+							"stylers": [{"color": "#000000"},{"lightness": 21}]
+						},
+						{
+							"featureType": "poi",
+							"elementType": "geometry",
+							"stylers": [{"color": "#000000"},{"lightness": 22}]
+						},
+						{
+							"featureType": "road.highway",
+							"elementType": "geometry.fill",
+							"stylers": [{"color": "#000000"},{"lightness": 16}]
+						},
+						{
+							"featureType": "road.highway",
+							"elementType": "geometry.stroke",
+							"stylers": [{"color": "#000000"},{"lightness": 28},{"weight": 0.2}]
+						},
+						{
+							"featureType": "road.arterial",
+							"elementType": "geometry",
+							"stylers": [{"color": "#000000"},{"lightness": 18}]
+						},
+						{
+							"featureType": "road.local",
+							"elementType": "geometry",
+							"stylers": [{"color": "#000000"},{"lightness": 15}]
+						},
+						{
+							"featureType": "transit",
+							"elementType": "geometry",
+							"stylers": [{"color": "#000000"},{"lightness": 19}]
+						},
+						{
+							"featureType": "water",
+							"elementType": "geometry",
+							"stylers": [{"color": "#000000"},{"lightness": 17}]
+						}
+					]
+				};
+				var mapDiv = document.getElementById('map-div');
+				map = new google.maps.Map(mapDiv, mapOptions);
+				var canvasLayerOptions = {
+					map: map,
+					resizeHandler: resize,
+					animate: false,
+					updateHandler: update,
+					resolutionScale: resolutionScale
+				};
+				canvasLayer = new CanvasLayer(canvasLayerOptions);
+				gl = canvasLayer.canvas.getContext('webgl',{premultipliedAlpha: true});
+				loadData();
+			}
+
+			function loadData() {				
+			}
+
+			// Runs Every Time Map resizes
+			function resize() {
+
+			}
+
+			// Runs Every Time Map updates
+			function update() {
+			}
+
+			document.addEventListener('DOMContentLoaded', init, false);
+		</script>
+	</head>
+
+	<body>
+		<div id="map-div"></div>
+		<div class="acma">
+			<p>Data Based on Australian Communications and Media Authority information.</p>
+		</div>
+	</body>
+</html>

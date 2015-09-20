@@ -18,8 +18,12 @@ package main
 //  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.package main
 
 import (
+	"fmt"
 	"log"
 	"log/syslog"
+	"net/http"
+
+	"golang.org/x/net/websocket"
 )
 
 func init() {
@@ -31,4 +35,12 @@ func init() {
 
 func main() {
 	log.Println("Starting ACMAMAP")
+	http.Handle("/", http.FileServer(http.Dir("www/")))
+	http.Handle("/ws/acmasites", websocket.Handler(wsACMASites))
+	port := 30000
+	fmt.Printf("Server running on port %d\n", port)
+	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+	if err != nil {
+		log.Println(err)
+	}
 }
