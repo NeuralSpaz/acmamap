@@ -23,9 +23,9 @@ import (
 )
 
 func init() {
-	logwriter, e := syslog.New(syslog.LOG_NOTICE, "ACMAMAP")
+	lw, e := syslog.New(syslog.LOG_NOTICE, "ACMAMAP")
 	if e == nil {
-		log.SetOutput(logwriter)
+		log.SetOutput(lw)
 	}
 }
 
