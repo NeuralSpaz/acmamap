@@ -37,13 +37,17 @@
 		var canvasLayer;
 		var gl;
 		var ws;
-		var pointDataSize = 0;
-		var pointData = new Float32Array(pointDataSize);
+		var SITE_COUNT = 0;
+		var pointData = new Float32Array(SITE_COUNT);
+		var pixelsToWebGLMatrix = new Float32Array(16);
+		var mapMatrix = new Float32Array(16);
+		var width = 0;
+		var height = 0;
 
 		function init() {
 				var mapOptions = {
 					zoom: 5,
-					center: new google.maps.LatLng(-39.3, 145),
+					center: new google.maps.LatLng(-28.0, 133.5),
 					mapTypeId: google.maps.MapTypeId.ROADMAP,
 					styles: [
 						{
@@ -124,8 +128,26 @@
 				};
 				canvasLayer = new CanvasLayer(canvasLayerOptions);
 				gl = canvasLayer.canvas.getContext('webgl',{premultipliedAlpha: true});
+				createShaderProgram();
 				loadData();
 			}
+
+			function createShaderProgram() {
+				var vertexSrc = document.getElementById('siteVertexShader').text;
+				var vertexShader = gl.createShader(gl.VERTEX_SHADER);
+				gl.shaderSource(vertexShader, vertexSrc);
+				gl.compileShader(vertexShader);
+				var fragmentSrc = document.getElementById('siteFragmentShader').text;
+				var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+				gl.shaderSource(fragmentShader, fragmentSrc);
+				gl.compileShader(fragmentShader);
+				siteProgram = gl.createProgram();
+				gl.attachShader(siteProgram, vertexShader);
+				gl.attachShader(siteProgram, fragmentShader);
+				gl.linkProgram(siteProgram);
+				gl.useProgram(siteProgram);
+			}			
+
 			// get all the datas
 			function loadData() {
 				ws = new WebSocket("ws://"+document.location.host+"/ws/acmasites");
@@ -143,7 +165,15 @@
 						// float32 little-endian byte ordering.
 						tempArray[jj] =	data.getFloat32(jj * Float32Array.BYTES_PER_ELEMENT, true);
 					}
-					console.log(tempArray);
+					SITE_COUNT = tempArray.length/2;
+					console.log("Loaded " + SITE_COUNT + " sites");
+					pointArrayBuffer = gl.createBuffer();
+					gl.bindBuffer(gl.ARRAY_BUFFER, pointArrayBuffer);
+					gl.bufferData(gl.ARRAY_BUFFER, tempArray, gl.STATIC_DRAW);
+					var attributeLoc = gl.getAttribLocation(siteProgram, 'worldCoord');
+					gl.enableVertexAttribArray(attributeLoc);
+					gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 0, 0);
+					update();
 				}
 			}
 
@@ -154,17 +184,75 @@
 				// console.log("Current Lenght: " + currentLength);
 				// console.
 			}
+			window.addEventListener("resize", resize);
 
 			// Runs Every Time Map resizes
 			function resize() {
+				console.log("resized")
+				var width = canvasLayer.canvas.width;
+				var height = canvasLayer.canvas.height;
+				gl.viewport(0, 0, width, height);
+				pixelsToWebGLMatrix.set([
+					2 * resolutionScale / width, 0, 0, 0,
+					0, -2 * resolutionScale / height, 0, 0,
+					0, 0, 0, 0,
+					-1, 1, 0, 1
+				]);
+				update();
 			}
 
 			// Runs Every Time Map updates
 			function update() {
+				console.log("Update")
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				var mapProjection = map.getProjection();
+				mapMatrix.set(pixelsToWebGLMatrix);
+				var scale = Math.pow(2, map.zoom);
+				scaleMatrix(mapMatrix, scale, scale);
+				var offset = mapProjection.fromLatLngToPoint(canvasLayer.getTopLeft());
+				translateMatrix(mapMatrix, -offset.x, -offset.y);
+				var matrixLoc = gl.getUniformLocation(siteProgram, 'mapMatrix');
+				gl.uniformMatrix4fv(matrixLoc, false, mapMatrix);
+				gl.drawArrays(gl.POINTS, 0, SITE_COUNT);
+			}
+
+			function scaleMatrix(matrix, scaleX, scaleY) {
+				matrix[0] *= scaleX;
+				matrix[1] *= scaleX;
+				matrix[2] *= scaleX;
+				matrix[3] *= scaleX;
+
+				matrix[4] *= scaleY;
+				matrix[5] *= scaleY;
+				matrix[6] *= scaleY;
+				matrix[7] *= scaleY;
+			}
+
+			function translateMatrix(matrix, tx, ty) {
+				matrix[12] += matrix[0]*tx + matrix[4]*ty;
+				matrix[13] += matrix[1]*tx + matrix[5]*ty;
+				matrix[14] += matrix[2]*tx + matrix[6]*ty;
+				matrix[15] += matrix[3]*tx + matrix[7]*ty;
 			}
 
 			// Load that map
+			
 			document.addEventListener('DOMContentLoaded', init, false);
+
+		</script>
+		<script id="siteVertexShader" type="x-shader/x-vertex">
+			attribute vec4 worldCoord;
+			uniform mat4 mapMatrix;
+			void main() {
+				gl_Position = mapMatrix * worldCoord;
+				gl_PointSize = 3.;
+			}
+		</script>
+		<script id="siteFragmentShader" type="x-shader/x-fragment">
+			precision mediump float;
+			void main() {
+				gl_FragColor = vec4(.9, .3, .1, .9);
+			}      
 		</script>
 	</head>
 

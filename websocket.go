@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"log"
+	"sync"
 
 	"golang.org/x/net/websocket"
 )
@@ -37,6 +38,13 @@ type ClientConn struct {
 // All the Clients
 var newConn = make(chan *ClientConn)
 
+type counter struct {
+	sync.Mutex
+	Clients int
+}
+
+var clients counter
+
 func wsACMASites(ws *websocket.Conn) {
 	c := &ClientConn{}
 	c.ws = ws
@@ -45,6 +53,9 @@ func wsACMASites(ws *websocket.Conn) {
 	log.Println("New wsACMASites Conection: ", ws.RemoteAddr())
 
 	newConn <- c
+	clients.Lock()
+	clients.Clients++
+	clients.Unlock()
 
 	for {
 		// read the packet
@@ -54,6 +65,9 @@ func wsACMASites(ws *websocket.Conn) {
 		packet = packet[0:n]
 		if err != nil {
 			log.Println("wsACMASites Read Error: ", err)
+			clients.Lock()
+			clients.Clients--
+			clients.Unlock()
 			break
 		}
 		buf := bytes.NewBuffer(packet)
@@ -61,6 +75,9 @@ func wsACMASites(ws *websocket.Conn) {
 		err = binary.Read(buf, binary.LittleEndian, &cmd)
 		if err != nil {
 			log.Println(err)
+			clients.Lock()
+			clients.Clients--
+			clients.Unlock()
 			break
 		}
 		// Hope this works like I think it will

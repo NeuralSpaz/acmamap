@@ -23,30 +23,29 @@ import (
 	"encoding/csv"
 	"fmt"
 	"log"
-	"log/syslog"
 	"math"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
 	"golang.org/x/net/websocket"
 )
 
-func init() {
-	// Use syslog for all our logging needs
-	lw, e := syslog.New(syslog.LOG_NOTICE, "ACMAMAP")
-	if e == nil {
-		log.SetOutput(lw)
-	}
-}
+// func init() {
+// 	// Use syslog for all our logging needs
+// 	lw, e := syslog.New(syslog.LOG_NOTICE, "ACMAMAP")
+// 	if e == nil {
+// 		log.SetOutput(lw)
+// 	}
+// }
 
 func main() {
 	// Tell syslog we are starting
 	log.Println("Starting ACMAMAP")
 
 	// Register our http Handlers
-	http.Handle("/", http.FileServer(http.Dir("www/")))
+	http.HandleFunc("/", handleIndex)
+	// http.Handle("/", http.FileServer(http.Dir("www/")))
 	// Register out websockets Handlers
 	http.Handle("/ws/acmasites", websocket.Handler(wsACMASites))
 
@@ -58,11 +57,13 @@ func main() {
 	}()
 
 	pointdata := loadData()
-
+	log.Println("Loaded Point Data")
 	for {
 		select {
-		case <-time.After(time.Second * 1):
-			log.Println("Tick:")
+		case <-time.After(time.Second * 10):
+			clients.Lock()
+			log.Println("Current Clients: ", clients.Clients)
+			clients.Unlock()
 		case cl := <-newConn:
 			buf := new(bytes.Buffer)
 			// var pi float64 = math.Pi
@@ -79,16 +80,38 @@ func main() {
 	}
 }
 
-func loadData() []float32 {
-	csvfile, err := os.Open("GDA94_SITE.CSV")
+func handleIndex(rw http.ResponseWriter, req *http.Request) {
+	if req.Method != "GET" {
+		http.Error(rw, "opps", http.StatusBadRequest)
+		log.Printf("%+v\n", req)
+	}
 
+	log.Println("Serving JavaScript")
+	request := req.URL.Path[1:]
+	log.Println(request)
+
+	if request == "" {
+		request = "index.html"
+	}
+	file, err := Asset("www/" + request)
+	if err != nil {
+		log.Printf("%+v\n", req)
+		log.Println(err)
+		http.NotFound(rw, req)
+	}
+	rw.Write(file)
+}
+
+func loadData() []float32 {
+
+	csvfile, err := Asset("www/GDA94_SITE.CSV")
 	if err != nil {
 		fmt.Println(err)
 		return nil
 	}
+	file := bytes.NewReader(csvfile)
 
-	defer csvfile.Close()
-	r := csv.NewReader(csvfile)
+	r := csv.NewReader(file)
 
 	records, err := r.ReadAll()
 	if err != nil {
