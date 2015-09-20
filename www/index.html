@@ -49,7 +49,7 @@
 				var mapOptions = {
 					zoom: 5,
 					center: new google.maps.LatLng(-28.0, 133.5),
-					mapTypeId: google.maps.MapTypeId.ROADMAP,
+					mapTypeId: google.maps.MapTypeId.TERRAIN,
 					styles: [
 						{
 							"featureType": "all",
@@ -128,7 +128,7 @@
 					resolutionScale: resolutionScale
 				};
 				canvasLayer = new CanvasLayer(canvasLayerOptions);
-				gl = canvasLayer.canvas.getContext('webgl',{premultipliedAlpha: true, antialias : true});
+				gl = canvasLayer.canvas.getContext('webgl',{premultipliedAlpha: true});
 				    gl.enable(gl.BLEND);
           			gl.blendFunc( gl.SRC_ALPHA, gl.ONE );
 				createShaderProgram();
@@ -194,7 +194,7 @@
 
 			// Runs Every Time Map resizes
 			function resize() {
-				console.log("resized")
+				// console.log("resized")
 				var width = canvasLayer.canvas.width;
 				var height = canvasLayer.canvas.height;
 				gl.viewport(0, 0, width, height);
@@ -204,17 +204,17 @@
 					0, 0, 0, 0,
 					-1, 1, 0, 1
 				]);
-				update();
+				// update();
 			}
 
 			// Runs Every Time Map updates
 			function update() {
-				console.log("Update")
+				// console.log("Update")
 
 				gl.clear(gl.COLOR_BUFFER_BIT);
 				var pointSize = Math.floor((map.zoom - 3.) / (25. - 4.) * (20. - 1) + 1);
 				var pointSize = Math.max(2, pointSize)
-				console.log(pointSize)
+				// console.log(pointSize)
 				// var pointSize = 0.5;
 				gl.vertexAttrib1f(aPointSize, pointSize*1.0);
 				var mapProjection = map.getProjection();
