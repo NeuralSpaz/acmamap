@@ -16,4 +16,4 @@ https://github.com/jteeuwen/go-bindata
 
 
 
-Live Data http://acma.delwp.net
+Live http://acma.delwp.net
