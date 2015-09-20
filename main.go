@@ -18,10 +18,13 @@ package main
 //  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"log/syslog"
 	"net/http"
+	"time"
 
 	"golang.org/x/net/websocket"
 )
@@ -46,8 +49,27 @@ func main() {
 	// Spin that http server up!
 	port := 30000
 	fmt.Printf("Server running on port %d\n", port)
-	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
-	if err != nil {
-		log.Println(err)
+	go func() {
+		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
+	}()
+
+	pointdata := []float64{221.04538524444445, 136.93982096462926, 221.0459136, 136.93963306394787, 221.06414648888887, 136.90747494091536, 220.98927644444444, 136.9198768606348, 223.14627413333335, 145.4789690031631}
+	// Main Loop
+	for {
+		select {
+		case <-time.After(time.Second * 1):
+			log.Println("Tick:")
+		case cl := <-newConn:
+			buf := new(bytes.Buffer)
+			// var pi float64 = math.Pi
+			err := binary.Write(buf, binary.LittleEndian, pointdata)
+			if err != nil {
+				log.Println("binary.Write failed:", err)
+			}
+			err = websocket.Message.Send(cl.ws, buf.Bytes())
+			if err != nil {
+				log.Println(err)
+			}
+		}
 	}
 }

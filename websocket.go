@@ -20,6 +20,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"log"
 
 	"golang.org/x/net/websocket"
@@ -27,9 +29,9 @@ import (
 
 // Something to hold our clients in
 type ClientConn struct {
-	ws *websocket.Conn
-	// client command chan
-	cmd chan uint8
+	ws       *websocket.Conn
+	inBuffer [100]byte
+	cmd      chan uint8
 }
 
 // All the Clients
@@ -45,7 +47,23 @@ func wsACMASites(ws *websocket.Conn) {
 	newConn <- c
 
 	for {
-		// do somthing here
+		// read the packet
+		// TODO: Reduce allocations
+		packet := c.inBuffer[0:]
+		n, err := ws.Read(packet)
+		packet = packet[0:n]
+		if err != nil {
+			log.Println("wsACMASites Read Error: ", err)
+			break
+		}
+		buf := bytes.NewBuffer(packet)
+		// its all binary
+		err = binary.Read(buf, binary.LittleEndian, &cmd)
+		if err != nil {
+			log.Println(err)
+			break
+		}
+		// Hope this works like I think it will
 		c.cmd <- cmd
 	}
 
