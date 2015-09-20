@@ -27,6 +27,7 @@ import (
 )
 
 func init() {
+	// Use syslog for all our logging needs
 	lw, e := syslog.New(syslog.LOG_NOTICE, "ACMAMAP")
 	if e == nil {
 		log.SetOutput(lw)
@@ -34,9 +35,15 @@ func init() {
 }
 
 func main() {
+	// Tell syslog we are starting
 	log.Println("Starting ACMAMAP")
+
+	// Register our http Handlers
 	http.Handle("/", http.FileServer(http.Dir("www/")))
+	// Register out websockets Handlers
 	http.Handle("/ws/acmasites", websocket.Handler(wsACMASites))
+
+	// Spin that http server up!
 	port := 30000
 	fmt.Printf("Server running on port %d\n", port)
 	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)

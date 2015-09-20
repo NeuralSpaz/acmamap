@@ -1,7 +1,3 @@
-package main
-
-import "golang.org/x/net/websocket"
-
 // ACMA Data Mapping
 //  Copyright (C) 2015  Josh Gardiner aka github.com/NeuralSpaz/
 
@@ -19,6 +15,38 @@ import "golang.org/x/net/websocket"
 //  with this program; if not, write to the Free Software Foundation, Inc.,
 //  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.package main
 
+// Handler for our binary websockets data connection
+
+package main
+
+import (
+	"log"
+
+	"golang.org/x/net/websocket"
+)
+
+// Something to hold our clients in
+type ClientConn struct {
+	ws *websocket.Conn
+	// client command chan
+	cmd chan uint8
+}
+
+// All the Clients
+var newConn = make(chan *ClientConn)
+
 func wsACMASites(ws *websocket.Conn) {
+	c := &ClientConn{}
+	c.ws = ws
+	c.cmd = make(chan uint8)
+	var cmd uint8
+	log.Println("New wsACMASites Conection: ", ws.RemoteAddr())
+
+	newConn <- c
+
+	for {
+		// do somthing here
+		c.cmd <- cmd
+	}
 
 }
