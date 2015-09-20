@@ -36,6 +36,9 @@
 		var map;
 		var canvasLayer;
 		var gl;
+		var ws;
+		var pointDataSize = 0;
+		var pointData = new Float32Array(pointDataSize);
 
 		function init() {
 				var mapOptions = {
@@ -124,7 +127,33 @@
 				loadData();
 			}
 			// get all the datas
-			function loadData() {				
+			function loadData() {
+				ws = new WebSocket("ws://"+document.location.host+"/ws/acmasites");
+				ws.binaryType = "arraybuffer";
+				ws.onopen = function() {
+					console.log("connection open");
+					// SendFrame();
+				}
+				ws.onmessage = function(e) {
+					var arrayBuffer = (e.data);
+					var data = new DataView(arrayBuffer);
+					var tempArray = new Float32Array( data.byteLength / Float32Array.BYTES_PER_ELEMENT);
+					var len = tempArray.length;
+					for (var jj = 0; jj < len; ++jj) {
+						// float32 little-endian byte ordering.
+						tempArray[jj] =	data.getFloat32(jj * Float32Array.BYTES_PER_ELEMENT, true);
+					}
+					// console.log(tempArray);
+				}
+			}
+
+			function appendData(newData){
+				// var currentLength = pointData.length;
+				// console.log("Current Lenght: " + currentLength);
+				// var newDataLength = newData.length;
+				// console.log("Current Lenght: " + currentLength);
+				// console.
+
 			}
 
 			// Runs Every Time Map resizes
