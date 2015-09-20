@@ -1,7 +1,7 @@
 # acmamap
 Map of ACMA data
 
-![alt tag]https://github.com/NeuralSpaz/acmamap/blob/master/radioLights.png)
+![alt tag](https://github.com/NeuralSpaz/acmamap/blob/master/radioLights.png)
 
 
 
