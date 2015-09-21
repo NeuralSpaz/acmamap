@@ -5,6 +5,9 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+		<meta property="og:image" content="preview.png" />
+		<meta property="og:title" content="All the Radios" />
+		<meta property="og:description" content="webgl Map of Radiocommunication licences in Australia" />
 		<title>All the Radios</title>
 		<style>
 			html, body, #map-div {
@@ -25,6 +28,31 @@
 			{
 				text-align: center;
 				font: 10px arial, sans-serif;
+			}
+			.webgl-hidden
+			{
+				display: none;
+			}
+			.nowebgl
+			{
+				width: 100%;
+				margin-bottom: 20px;
+				display: table-cell;   
+				opacity:0.6;
+				position: fixed;
+				bottom: 0px;
+			}
+			.nowebgl p
+			{
+				color: #FFFFFF;
+				text-align: center;
+				font: 20px arial, sans-serif;
+			}
+			.nowebgl a
+			{
+				color: #FFFFFF;
+				text-align: center;
+				font: 20px arial, sans-serif;
 			}
 		</style>
 		<script src="https://maps.googleapis.com/maps/api/js?v=3.20"></script>
@@ -128,9 +156,16 @@
 					resolutionScale: resolutionScale
 				};
 				canvasLayer = new CanvasLayer(canvasLayerOptions);
+
 				gl = canvasLayer.canvas.getContext('webgl',{premultipliedAlpha: true});
+				if (!gl) {
+					console.log("nowebgl");
+					document.getElementById("nowebgldiv").className = "";
+					return;
+				}
 				    gl.enable(gl.BLEND);
           			gl.blendFunc( gl.SRC_ALPHA, gl.ONE );
+          		
 				createShaderProgram();
 				loadData();
 			}
@@ -151,10 +186,57 @@
 				gl.useProgram(siteProgram);
 			}			
 
+			function fallbackLoadData() {
+				var xhr = new XMLHttpRequest();
+				xhr.open('GET', 'sites', true);
+				xhr.responseType = 'arraybuffer';
+				
+				xhr.onload = function(e) {
+				  if (this.status == 200) {
+					var data = new DataView(this.response);
+					var tempArray = new Float32Array( data.byteLength / Float32Array.BYTES_PER_ELEMENT);
+					var len = tempArray.length;
+					for (var jj = 0; jj < len; ++jj) {
+						// float32 little-endian byte ordering.
+						tempArray[jj] =	data.getFloat32(jj * Float32Array.BYTES_PER_ELEMENT, true);
+					}
+					SITE_COUNT = tempArray.length/2;
+					console.log("Loaded " + SITE_COUNT + " sites");
+					pointArrayBuffer = gl.createBuffer();
+					gl.bindBuffer(gl.ARRAY_BUFFER, pointArrayBuffer);
+					gl.bufferData(gl.ARRAY_BUFFER, tempArray, gl.STATIC_DRAW);
+					var attributeLoc = gl.getAttribLocation(siteProgram, 'worldCoord');
+
+					aPointSize = gl.getAttribLocation(siteProgram, "aPointSize");
+
+					gl.enableVertexAttribArray(attributeLoc);
+					gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 0, 0);
+					update();
+				  }
+				};
+				
+				xhr.send();
+			}
+
+
 			// get all the datas
 			function loadData() {
-				ws = new WebSocket("ws://"+document.location.host+"/ws/acmasites");
+				// WebSocket = undefined;
+				// var ws = 0;
+				console.log("tyring websockets")
+				try {
+					ws = new WebSocket("ws://"+document.location.host+"/ws/acmasites");
+					// return;
+				} catch ( e ) {
+    					fallbackLoadData();
+   						console.warn("No websockets! failing back to xhr");
+				}
+				
+				// ws = new WebSocket("ws://"+document.location.host+"/ws/acmasites");
+				console.log(ws);			
 				ws.binaryType = "arraybuffer";
+
+
 				ws.onopen = function() {
 					console.log("connection open");
 					// SendFrame();
@@ -183,12 +265,18 @@
 				}
 			}
 
-			function appendData(newData){
-				// var currentLength = pointData.length;
-				// console.log("Current Lenght: " + currentLength);
-				// var newDataLength = newData.length;
-				// console.log("Current Lenght: " + currentLength);
-				// console.
+			function CheckGL(){
+				console.log(gl);
+				
+        		// glexp = canvas.getContext("experimental-webgl");
+  				
+				console.log(glexp);
+    			if (glexp != null) {
+    				console.log("GL Enabled");
+    			} else {
+    				console.log("no webgl");
+    			}
+
 			}
 			window.addEventListener("resize", resize);
 
@@ -279,8 +367,14 @@
 
 	<body>
 		<div id="map-div"></div>
+
 		<div class="acma">
 			<p>Data Based on Australian Communications and Media Authority information.</p>
+		</div>
+		<div class="webgl-hidden" id="nowebgldiv">
+			<div class="nowebgl">
+				<p>Sorry but Map requires <a href="https://get.webgl.org/">Webgl </a> turned on</p>
+			</div>
 		</div>
 	</body>
 </html>

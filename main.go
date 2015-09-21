@@ -38,6 +38,7 @@ import (
 // 		log.SetOutput(lw)
 // 	}
 // }
+var pointdata []float32
 
 func main() {
 	// Tell syslog we are starting
@@ -46,7 +47,9 @@ func main() {
 	// Register our http Handlers
 	http.HandleFunc("/", handleIndex)
 	// http.Handle("/", http.FileServer(http.Dir("www/")))
+
 	// Register out websockets Handlers
+	http.HandleFunc("/sites", handleSites)
 	http.Handle("/ws/acmasites", websocket.Handler(wsACMASites))
 
 	// Spin that http server up!
@@ -56,7 +59,7 @@ func main() {
 		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))
 	}()
 
-	pointdata := loadData()
+	pointdata = loadData()
 	log.Println("Loaded Point Data")
 	for {
 		select {
@@ -100,6 +103,23 @@ func handleIndex(rw http.ResponseWriter, req *http.Request) {
 		http.NotFound(rw, req)
 	}
 	rw.Write(file)
+}
+
+func handleSites(rw http.ResponseWriter, req *http.Request) {
+	if req.Method != "GET" {
+		http.Error(rw, "opps", http.StatusBadRequest)
+		log.Printf("%+v\n", req)
+	}
+
+	// buf := new(bytes.Buffer)
+	// var pi float64 = math.Pi
+	err := binary.Write(rw, binary.LittleEndian, pointdata[2:])
+	if err != nil {
+		log.Println("binary.Write failed:", err)
+	}
+	log.Println("Serving XHR")
+
+	// rw.Write(buf)
 }
 
 func loadData() []float32 {
