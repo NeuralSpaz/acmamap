@@ -11,9 +11,17 @@
 		<title>All the Radios</title>
 		<style>
 			html, body, #map-div {
-				margin: 0;
-				padding: 0;
+				padding: 0px;
+				margin: 0px;
+				width: 100%;
 				height: 100%;
+				overflow: hidden;
+			}
+			canvas {
+				padding: 0px;
+				margin: 0px;
+    			width: 100%;
+    			height: 100%;
 			}
 			.acma
 			{  
@@ -55,12 +63,15 @@
 				font: 20px arial, sans-serif;
 			}
 		</style>
-		<script src="https://maps.googleapis.com/maps/api/js?v=3.20"></script>
+		// <script src="https://maps.googleapis.com/maps/api/js?v=3.20"></script>
+		<!-- // <script src="https://maps.googleapis.com/maps/api/js"></script> -->
 		<script src="CanvasLayer.js"></script>
 		<script>
 
 		// One to one
-		var resolutionScale = window.devicePixelRatio || 1;
+
+		var resolutionScale = 1;
+
 		var map;
 		var canvasLayer;
 		var gl;
@@ -70,8 +81,8 @@
 		var pixelsToWebGLMatrix = new Float32Array(16);
 		var mapMatrix = new Float32Array(16);
 		var aPointSize = 1.;
-		var width = 0;
-		var height = 0;
+		var width;
+		var height;
 
 		function init() {
 				var mapOptions = {
@@ -163,9 +174,10 @@
 					document.getElementById("nowebgldiv").className = "";
 					return;
 				}
-				    gl.enable(gl.BLEND);
+				gl.enable(gl.BLEND);
           			gl.blendFunc( gl.SRC_ALPHA, gl.ONE );
-          		
+          		var width = gl.canvas.clientWidth;
+	  			var height = gl.canvas.clientHeight;
 				createShaderProgram();
 				loadData();
 			}
@@ -184,6 +196,8 @@
 				gl.attachShader(siteProgram, fragmentShader);
 				gl.linkProgram(siteProgram);
 				gl.useProgram(siteProgram);
+
+				gl.aPointSize = gl.getAttribLocation(siteProgram, "aPointSize");
 			}			
 
 			function fallbackLoadData() {
@@ -207,7 +221,7 @@
 					gl.bufferData(gl.ARRAY_BUFFER, tempArray, gl.STATIC_DRAW);
 					var attributeLoc = gl.getAttribLocation(siteProgram, 'worldCoord');
 
-					aPointSize = gl.getAttribLocation(siteProgram, "aPointSize");
+					gl.aPointSize = gl.getAttribLocation(siteProgram, "aPointSize");
 
 					gl.enableVertexAttribArray(attributeLoc);
 					gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 0, 0);
@@ -257,7 +271,7 @@
 					gl.bufferData(gl.ARRAY_BUFFER, tempArray, gl.STATIC_DRAW);
 					var attributeLoc = gl.getAttribLocation(siteProgram, 'worldCoord');
 
-					aPointSize = gl.getAttribLocation(siteProgram, "aPointSize");
+					gl.aPointSize = gl.getAttribLocation(siteProgram, "aPointSize");
 
 					gl.enableVertexAttribArray(attributeLoc);
 					gl.vertexAttribPointer(attributeLoc, 2, gl.FLOAT, false, 0, 0);
@@ -265,34 +279,28 @@
 				}
 			}
 
-			function CheckGL(){
-				console.log(gl);
-				
-        		// glexp = canvas.getContext("experimental-webgl");
-  				
-				console.log(glexp);
-    			if (glexp != null) {
-    				console.log("GL Enabled");
-    			} else {
-    				console.log("no webgl");
-    			}
 
+
+			function pickPoints(){
+				// var readBytes = new Uint8Array(4);
+				// var readInt	= new Int32Array(readBytes.buffer);
+				// gl.readPixel(0,0,1,1 gl.RGBA, gl.UNSIGNED_BYTE,readBytes);
+				// console.log(gl.readPixel(0,0,1,1 gl.RGBA, gl.UNSIGNED_BYTE,readBytes));
+				// var data = lookupTable[readInt[0]];
 			}
-			window.addEventListener("resize", resize);
 
-			// Runs Every Time Map resizes
 			function resize() {
-				// console.log("resized")
 				var width = canvasLayer.canvas.width;
 				var height = canvasLayer.canvas.height;
-				gl.viewport(0, 0, width, height);
-				pixelsToWebGLMatrix.set([
-					2 * resolutionScale / width, 0, 0, 0,
-					0, -2 * resolutionScale / height, 0, 0,
-					0, 0, 0, 0,
-					-1, 1, 0, 1
-				]);
-				// update();
+				var mapWidth = map.getDiv().offsetWidth;
+  				var mapHeight = map.getDiv().offsetHeight;
+				if (canvasLayer.canvasCssWidth_ !== mapWidth || canvasLayer.canvasCssHeight_ !== mapHeight) {
+				  	canvasLayer.resize_();
+				} else {
+					gl.viewport(0, 0, width, height);
+
+				}
+				pixelsToWebGLMatrix.set([2/width, 0, 0, 0, 0, -2/height, 0, 0, 0, 0, 0, 0, -1, 1, 0, 1]);
 			}
 
 			// Runs Every Time Map updates
@@ -302,17 +310,21 @@
 				gl.clear(gl.COLOR_BUFFER_BIT);
 				var pointSize = Math.floor((map.zoom - 3.) / (25. - 4.) * (20. - 1) + 1);
 				var pointSize = Math.max(2, pointSize)
-				// console.log(pointSize)
-				// var pointSize = 0.5;
-				gl.vertexAttrib1f(aPointSize, pointSize*1.0);
+				gl.vertexAttrib1f(gl.aPointSize, pointSize);
+
 				var mapProjection = map.getProjection();
+				// copy pixel->webgl matrix
 				mapMatrix.set(pixelsToWebGLMatrix);
-				// Scale to current zoom
+	
+				// Scale to current zoom (worldCoords * 2^zoom)
 				var scale = Math.pow(2, map.zoom);
 				scaleMatrix(mapMatrix, scale, scale);
-				// translate 
+	
+				// translate to current view (vector from topLeft to 0,0)
 				var offset = mapProjection.fromLatLngToPoint(canvasLayer.getTopLeft());
 				translateMatrix(mapMatrix, -offset.x, -offset.y);
+	
+				// attach matrix value to 'mapMatrix' uniform in shader
 				var matrixLoc = gl.getUniformLocation(siteProgram, 'mapMatrix');
 				gl.uniformMatrix4fv(matrixLoc, false, mapMatrix);
 				gl.drawArrays(gl.POINTS, 0, SITE_COUNT);
@@ -340,6 +352,7 @@
 			// Load that map
 			
 			document.addEventListener('DOMContentLoaded', init, false);
+			window.addEventListener("resize", resize);
 
 		</script>
 		<script id="siteVertexShader" type="x-shader/x-vertex">
@@ -353,9 +366,6 @@
 		</script>
 		<script id="siteFragmentShader" type="x-shader/x-fragment">
 			precision mediump float;
-			// void main() {
-			// 	gl_FragColor = vec4(.9, .3, .1, .9);
-			// }
     		void main() {
     			float dist = length(gl_PointCoord.xy - vec2(.5, .5));
     			dist = 1. - (dist * 2.);

@@ -1,20 +1,4 @@
 /**
- * Copyright 2012 Google Inc. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-/**
  * @fileoverview Extends OverlayView to provide a canvas "Layer".
  * @author Brendan Kenny
  */
@@ -117,27 +101,6 @@ function CanvasLayer(opt_options) {
    * @type {!HTMLCanvasElement}
    */
   this.canvas = canvas;
-
-  /**
-   * The CSS width of the canvas, which may be different than the width of the
-   * backing store.
-   * @private {number}
-   */
-  this.canvasCssWidth_ = 300;
-
-  /**
-   * The CSS height of the canvas, which may be different than the height of
-   * the backing store.
-   * @private {number}
-   */
-  this.canvasCssHeight_ = 150;
-
-  /**
-   * A value for scaling the CanvasLayer resolution relative to the CanvasLayer
-   * display size.
-   * @private {number}
-   */
-  this.resolutionScale_ = 1;
 
   /**
    * Simple bind for functions with no args for bind-less browsers (Safari).
@@ -257,7 +220,7 @@ CanvasLayer.prototype.setOptions = function(options) {
   }
 
   if (options.paneName !== undefined) {
-    this.setPaneName(options.paneName);
+    this.setPane(options.paneName);
   }
 
   if (options.updateHandler !== undefined) {
@@ -266,10 +229,6 @@ CanvasLayer.prototype.setOptions = function(options) {
 
   if (options.resizeHandler !== undefined) {
     this.setResizeHandler(options.resizeHandler);
-  }
-
-  if (options.resolutionScale !== undefined) {
-    this.setResolutionScale(options.resolutionScale);
   }
 
   if (options.map !== undefined) {
@@ -347,20 +306,6 @@ CanvasLayer.prototype.setResizeHandler = function(opt_resizeHandler) {
 };
 
 /**
- * Sets a value for scaling the canvas resolution relative to the canvas
- * display size. This can be used to save computation by scaling the backing
- * buffer down, or to support high DPI devices by scaling it up (by e.g.
- * window.devicePixelRatio).
- * @param {number} scale
- */
-CanvasLayer.prototype.setResolutionScale = function(scale) {
-  if (typeof scale === 'number') {
-    this.resolutionScale_ = scale;
-    this.resize_();
-  }
-};
-
-/**
  * Set a function that will be called when a repaint of the canvas is required.
  * If opt_updateHandler is null or unspecified, any existing callback is
  * removed.
@@ -425,40 +370,29 @@ CanvasLayer.prototype.onRemove = function() {
  * @private
  */
 CanvasLayer.prototype.resize_ = function() {
+  // TODO(bckenny): it's common to use a smaller canvas but use CSS to scale
+  // what is drawn by the browser to save on fill rate. Add an option to do
+  // this.
+
   if (!this.isAdded_) {
     return;
   }
 
   var map = this.getMap();
-  var mapWidth = map.getDiv().offsetWidth;
-  var mapHeight = map.getDiv().offsetHeight;
-  // console.log(mapWidth,mapHeight);
-
-  var newWidth = mapWidth * this.resolutionScale_;
-  var newHeight = mapHeight * this.resolutionScale_;
+  var width = map.getDiv().offsetWidth;
+  var height = map.getDiv().offsetHeight;
   var oldWidth = this.canvas.width;
   var oldHeight = this.canvas.height;
 
   // resizing may allocate a new back buffer, so do so conservatively
-  if (oldWidth !== newWidth || oldHeight !== newHeight) {
-    this.canvas.width = newWidth;
-    this.canvas.height = newHeight;
+  if (oldWidth !== width || oldHeight !== height) {
+    this.canvas.width = width;
+    this.canvas.height = height;
+    this.canvas.style.width = width + 'px';
+    this.canvas.style.height = height + 'px';
 
     this.needsResize_ = true;
     this.scheduleUpdate();
-  }
-
-  // reset styling if new sizes don't match; resize of data not needed
-  if (this.canvasCssWidth_ !== mapWidth ||
-      this.canvasCssHeight_ !== mapHeight) {
-    // console.log(this.canvas.style.width)
-    this.canvasCssWidth_ = mapWidth;
-    this.canvasCssHeight_ = mapHeight;
-    this.canvas.style.width = mapWidth + 'px';
-    this.canvas.style.height = mapHeight + 'px';
-    // console.log("1");
-    // this.needsResize_ = true;
-    // this.scheduleUpdate();
   }
 };
 
@@ -480,33 +414,17 @@ CanvasLayer.prototype.repositionCanvas_ = function() {
   //     this causes noticeable hitches in map and overlay relative
   //     positioning.
 
-  var map = this.getMap();
+  var bounds = this.getMap().getBounds();
+  this.topLeft_ = new google.maps.LatLng(bounds.getNorthEast().lat(),
+      bounds.getSouthWest().lng());
 
-  // topLeft can't be calculated from map.getBounds(), because bounds are
-  // clamped to -180 and 180 when completely zoomed out. Instead, calculate
-  // left as an offset from the center, which is an unwrapped LatLng.
-  var top = map.getBounds().getNorthEast().lat();
-  // console.log("TOP ", top);
-  var center = map.getCenter();
-  var scale = Math.pow(2, map.getZoom());
-  var left = center.lng() - (this.canvasCssWidth_ * 180) / (256 * scale);
-  this.topLeft_ = new google.maps.LatLng(top, left);
-
-  // Canvas position relative to draggable map's container depends on
-  // overlayView's projection, not the map's. Have to use the center of the
-  // map for this, not the top left, for the same reason as above.
+  // canvas position relative to draggable map's conatainer depends on
+  // overlayView's projection, not the map's
   var projection = this.getProjection();
-  var divCenter = projection.fromLatLngToDivPixel(center);
-  // console.log(divCenter.x,divCenter.y);
-  var offsetX = -Math.round((this.canvasCssWidth_ / 2) - divCenter.x);
-  // console.log("width:", this.canvasCssWidth_);
-  // console.log(offsetX);
-  var offsetY = -Math.round((this.canvasCssHeight_ / 2) - divCenter.y);
-  // console.log("Height:", this.canvasCssHeight_);
-  // console.log(offsetY);
+  var divTopLeft = projection.fromLatLngToDivPixel(this.topLeft_);
   this.canvas.style[CanvasLayer.CSS_TRANSFORM_] = 'translate(' +
-      offsetX + 'px,' + offsetY + 'px)';
-  // this.needsResize_ = true;
+      Math.round(divTopLeft.x) + 'px,' + Math.round(divTopLeft.y) + 'px)';
+
   this.scheduleUpdate();
 };
 

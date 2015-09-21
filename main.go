@@ -45,8 +45,8 @@ func main() {
 	log.Println("Starting ACMAMAP")
 
 	// Register our http Handlers
-	http.HandleFunc("/", handleIndex)
-	// http.Handle("/", http.FileServer(http.Dir("www/")))
+	// http.HandleFunc("/", handleIndex)
+	http.Handle("/", http.FileServer(http.Dir("www/")))
 
 	// Register out websockets Handlers
 	http.HandleFunc("/sites", handleSites)
